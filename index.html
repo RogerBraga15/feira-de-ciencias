@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Notebooks</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f3f4f6;
+      color: #333;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 250px;
+      background-color: #1e40af;
+      color: white;
+      padding: 20px;
+    }
+
+    .sidebar h1 {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+    }
+
+    .sidebar nav button {
+      display: block;
+      width: 100%;
+      background: none;
+      border: none;
+      color: white;
+      text-align: left;
+      padding: 10px;
+      margin-bottom: 5px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .sidebar nav button:hover {
+      background-color: #1e3a8a;
+    }
+
+    main {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #e5e7eb;
+    }
+
+    input, select, button {
+      padding: 8px;
+      margin: 4px;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .item-selecionado {
+      background-color: #86efac !important;
+    }
+
+    .notebook {
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: white;
+    }
+
+    .chart-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .chart-box {
+      flex: 1 1 300px;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <aside class="sidebar">
+      <h1>Gestão de Notebooks</h1>
+      <nav>
+        <button onclick="mostrarPagina('home')">Home</button>
+        <button onclick="mostrarPagina('notebooks')">Notebooks</button>
+        <button onclick="mostrarPagina('alunos')">Alunos</button>
+        <button onclick="mostrarPagina('professores')">Professores</button>
+        <button onclick="mostrarPagina('emprestimos')">Empréstimos</button>
+        <button onclick="mostrarPagina('relatorio')">Relatório</button>
+      </nav>
+    </aside>
+
+    <main id="conteudo"></main>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      mostrarPagina("home");
+      inicializarNotebooks();
+    });
+
+    function mostrarPagina(pagina) {
+      const conteudo = document.getElementById("conteudo");
+
+      switch (pagina) {
+        case "home":
+          mostrarHome(conteudo);
+          break;
+        case "notebooks":
+          mostrarNotebooks(conteudo);
+          break;
+        case "alunos":
+          mostrarAlunos(conteudo);
+          break;
+        case "professores":
+          mostrarProfessores(conteudo);
+          break;
+        case "emprestimos":
+          mostrarEmprestimos(conteudo);
+          break;
+        case "relatorio":
+          mostrarRelatorio(conteudo);
+          break;
+      }
+    }
+
+    // --- Inicialização dos notebooks
+    function inicializarNotebooks() {
+      let notebooks = JSON.parse(localStorage.getItem("notebooks")) || [];
+      if (notebooks.length === 0) {
+        const novos = [];
+        for (let i = 1; i <= 20; i++) novos.push({ id: `V-${i}`, marca: "VAIO", tipo: "Notebook", status: "Disponível" });
+        for (let i = 1; i <= 35; i++) novos.push({ id: `TS-${i}`, marca: "Samsung", tipo: "Tablet", status: "Disponível" });
+        for (let i = 1; i <= 10; i++) novos.push({ id: `CS-${i}`, marca: "Samsung", tipo: "Chromebook", status: "Disponível" });
+        for (let i = 1; i <= 20; i++) novos.push({ id: `P-${i}`, marca: "Positivo", tipo: "Notebook", status: "Disponível" });
+        localStorage.setItem("notebooks", JSON.stringify(novos));
+      }
+    }
+
+    // --- HOME COM GRÁFICOS ---
+    function mostrarHome(div) {
+      div.innerHTML = `
+        <h2>Visão Geral do Sistema</h2>
+        <div class="chart-container">
+          <div class="chart-box"><canvas id="graficoNotebooks"></canvas></div>
+          <div class="chart-box"><canvas id="graficoUsuarios"></canvas></div>
+          <div class="chart-box"><canvas id="graficoEmprestimos"></canvas></div>
+        </div>
+      `;
+
+      atualizarGraficos();
+    }
+
+    function atualizarGraficos() {
+      const notebooks = JSON.parse(localStorage.getItem("notebooks")) || [];
+      const alunos = JSON.parse(localStorage.getItem("alunos")) || [];
+      const professores = JSON.parse(localStorage.getItem("professores")) || [];
+      const emprestimos = JSON.parse(localStorage.getItem("emprestimos")) || [];
+
+      const disponiveis = notebooks.length - emprestimos.length;
+      const emUso = emprestimos.length;
+
+      // Gráfico 1: Notebooks
+      new Chart(document.getElementById("graficoNotebooks"), {
+        type: "doughnut",
+        data: {
+          labels: ["Disponíveis", "Em uso"],
+          datasets: [{
+            data: [disponiveis, emUso],
+            backgroundColor: ["#60a5fa", "#f87171"]
+          }]
+        },
+        options: {
+          plugins: { title: { display: true, text: "Notebooks e Tablets" } }
+        }
+      });
+
+      // Gráfico 2: Usuários
+      new Chart(document.getElementById("graficoUsuarios"), {
+        type: "bar",
+        data: {
+          labels: ["Alunos", "Professores"],
+          datasets: [{
+            label: "Cadastrados",
+            data: [alunos.length, professores.length],
+            backgroundColor: ["#34d399", "#fbbf24"]
+          }]
+        },
+        options: {
+          plugins: { title: { display: true, text: "Usuários Cadastrados" } }
+        }
+      });
+
+      // Gráfico 3: Empréstimos
+      const ativos = emprestimos.filter(e => e.status === "Em uso").length;
+      const total = emprestimos.length;
+
+      new Chart(document.getElementById("graficoEmprestimos"), {
+        type: "pie",
+        data: {
+          labels: ["Ativos", "Total de Empréstimos"],
+          datasets: [{
+            data: [ativos, total],
+            backgroundColor: ["#10b981", "#a78bfa"]
+          }]
+        },
+        options: {
+          plugins: { title: { display: true, text: "Empréstimos" } }
+        }
+      });
+    }
+
+    // --- Notebooks ---
+    function mostrarNotebooks(div) {
+      const notebooks = JSON.parse(localStorage.getItem("notebooks")) || [];
+      div.innerHTML = `
+        <h2>Notebooks e Tablets</h2>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Marca</th><th>Tipo</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            ${notebooks.map(n => `
+              <tr>
+                <td>${n.id}</td><td>${n.marca}</td><td>${n.tipo}</td><td>${n.status}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // --- Alunos ---
+    function mostrarAlunos(div) {
+      const alunos = JSON.parse(localStorage.getItem("alunos")) || [];
+
+      div.innerHTML = `
+        <h2>Alunos</h2>
+        <div>
+          <input id="nomeAluno" placeholder="Nome">
+          <input id="turmaAluno" placeholder="Turma">
+          <input id="numeroAluno" placeholder="Nº">
+          <button onclick="adicionarAluno()">Adicionar</button>
+        </div>
+        <ul id="listaAlunos">
+          ${alunos.map(a => `<li>${a.nome} - Turma ${a.turma}, Nº ${a.numero}</li>`).join("")}
+        </ul>
+      `;
+    }
+
+    function adicionarAluno() {
+      const nome = document.getElementById("nomeAluno").value;
+      const turma = document.getElementById("turmaAluno").value;
+      const numero = document.getElementById("numeroAluno").value;
+      if (!nome || !turma || !numero) return;
+
+      const alunos = JSON.parse(localStorage.getItem("alunos")) || [];
+      alunos.push({ nome, turma, numero });
+      localStorage.setItem("alunos", JSON.stringify(alunos));
+      mostrarPagina("alunos");
+    }
+
+    // --- Professores ---
+    function mostrarProfessores(div) {
+      const professores = JSON.parse(localStorage.getItem("professores")) || [];
+
+      div.innerHTML = `
+        <h2>Professores</h2>
+        <div>
+          <input id="nomeProf" placeholder="Nome">
+          <input id="materiaProf" placeholder="Matéria">
+          <input id="turmaProf" placeholder="Turma">
+          <button onclick="adicionarProfessor()">Adicionar</button>
+        </div>
+        <ul id="listaProfessores">
+          ${professores.map(p => `<li>${p.nome} - ${p.materia} (${p.turma})</li>`).join("")}
+        </ul>
+      `;
+    }
+
+    function adicionarProfessor() {
+      const nome = document.getElementById("nomeProf").value;
+      const materia = document.getElementById("materiaProf").value;
+      const turma = document.getElementById("turmaProf").value;
+      if (!nome || !materia || !turma) return;
+
+      const professores = JSON.parse(localStorage.getItem("professores")) || [];
+      professores.push({ nome, materia, turma });
+      localStorage.setItem("professores", JSON.stringify(professores));
+      mostrarPagina("professores");
+    }
+
+    // --- Empréstimos ---
+    let selecionados = [];
+
+    function mostrarEmprestimos(div) {
+      const alunos = JSON.parse(localStorage.getItem("alunos")) || [];
+      const professores = JSON.parse(localStorage.getItem("professores")) || [];
+      const notebooks = JSON.parse(localStorage.getItem("notebooks")) || [];
+      const emprestimos = JSON.parse(localStorage.getItem("emprestimos")) || [];
+
+      div.innerHTML = `
+        <h2>Empréstimos</h2>
+        <div>
+          <select id="alunoSel">
+            <option value="">Selecione o aluno</option>
+            ${alunos.map(a => `<option value="${a.nome}">${a.nome} - ${a.turma}</option>`).join("")}
+          </select>
+          <select id="profSel">
+            <option value="">Selecione o professor</option>
+            ${professores.map(p => `<option value="${p.nome}">${p.nome} - ${p.materia}</option>`).join("")}
+          </select>
+          <button onclick="iniciarEmprestimo()">Iniciar</button>
+        </div>
+        <div class="grid" id="listaNotebooks">
+          ${notebooks.map(n => `
+            <button class="notebook" onclick="toggleNotebook('${n.id}', this)">
+              ${n.id} (${n.marca})
+            </button>
+          `).join("")}
+        </div>
+        <h3>Ativos</h3>
+        <ul>
+          ${emprestimos.map(e => `<li>${e.id} - ${e.alunoSel} (${e.profSel})</li>`).join("")}
+        </ul>
+      `;
+    }
+
+    function toggleNotebook(id, btn) {
+      if (selecionados.includes(id)) {
+        selecionados = selecionados.filter(n => n !== id);
+        btn.classList.remove("item-selecionado");
+      } else {
+        selecionados.push(id);
+        btn.classList.add("item-selecionado");
+      }
+    }
+
+    function iniciarEmprestimo() {
+      const alunoSel = document.getElementById("alunoSel").value;
+      const profSel = document.getElementById("profSel").value;
+      if (!alunoSel || !profSel || selecionados.length === 0) return;
+
+      const emprestimos = JSON.parse(localStorage.getItem("emprestimos")) || [];
+      const novos = selecionados.map(id => ({ id, alunoSel, profSel, status: "Em uso" }));
+      emprestimos.push(...novos);
+      localStorage.setItem("emprestimos", JSON.stringify(emprestimos));
+      selecionados = [];
+      mostrarPagina("emprestimos");
+    }
+
+    // --- Relatório ---
+    function mostrarRelatorio(div) {
+      const emprestimos = JSON.parse(localStorage.getItem("emprestimos")) || [];
+      div.innerHTML = `
+        <h2>Relatório</h2>s
+        <table>
+          <thead>
+            <tr><th>Notebook</th><th>Aluno</th><th>Professor</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            ${emprestimos.map(e => `
+              <tr>
+                <td>${e.id}</td><td>${e.alunoSel}</td><td>${e.profSel}</td><td>${e.status}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+  </script>
+</body>
+</html>
